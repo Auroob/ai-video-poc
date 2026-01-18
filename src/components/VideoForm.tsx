@@ -1,0 +1,3 @@
+export default function VideoForm() {
+  return <div>Video Form</div>;
+}
