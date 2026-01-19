@@ -1,6 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+
+type VideoVersion = {
+  id: string;
+  createdAt: number;
+  settings: {
+    text: string;
+    language: string;
+    voiceGender: string;
+    voiceSpeed: string;
+    aspectRatio: string;
+    backgroundType: "color" | "image";
+    backgroundValue?: string;
+  };
+  videoUrl: string;
+};
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -8,6 +23,9 @@ export default function Home() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [versions, setVersions] = useState<VideoVersion[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -21,6 +39,73 @@ export default function Home() {
       setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+  }
+
+  useEffect(() => {
+    const saved = localStorage.getItem("videoVersions");
+    if (saved) {
+      setVersions(JSON.parse(saved));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("videoVersions", JSON.stringify(versions));
+  }, [versions]);
+
+  function loadVersion(version: VideoVersion) {
+    if (!formRef.current) return;
+
+    const form = formRef.current;
+
+    (form.elements.namedItem("text") as HTMLTextAreaElement).value =
+      version.settings.text;
+
+    (form.elements.namedItem("language") as HTMLSelectElement).value =
+      version.settings.language;
+
+    (form.elements.namedItem("voiceGender") as HTMLSelectElement).value =
+      version.settings.voiceGender;
+
+    (form.elements.namedItem("voiceSpeed") as HTMLSelectElement).value =
+      version.settings.voiceSpeed;
+
+    (form.elements.namedItem("aspectRatio") as HTMLSelectElement).value =
+      version.settings.aspectRatio;
+
+    setBackgroundType(version.settings.backgroundType);
+    setVideoUrl(version.videoUrl);
+
+    // ⭐ NEW
+    setExpandedVersionId(prev =>
+      prev === version.id ? null : version.id
+    );
+  }
+
+  function describeChanges(
+    prev: VideoVersion | null,
+    curr: VideoVersion
+  ): string {
+    if (!prev) return "Initial version";
+
+    const changes: string[] = [];
+
+    if (prev.settings.text !== curr.settings.text)
+      changes.push("Transcript updated");
+
+    if (prev.settings.voiceGender !== curr.settings.voiceGender)
+      changes.push(
+        `Voice gender: ${prev.settings.voiceGender} → ${curr.settings.voiceGender}`
+      );
+
+    if (prev.settings.voiceSpeed !== curr.settings.voiceSpeed)
+      changes.push(
+        `Voice speed: ${prev.settings.voiceSpeed} → ${curr.settings.voiceSpeed}`
+      );
+
+    if (prev.settings.backgroundType !== curr.settings.backgroundType)
+      changes.push("Background changed");
+
+    return changes.join(", ");
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -44,6 +129,25 @@ export default function Home() {
       }
 
       setVideoUrl(data.videoUrl);
+      const newVersion: VideoVersion = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        settings: {
+          text: formData.get("text") as string,
+          language: formData.get("language") as string,
+          voiceGender: formData.get("voiceGender") as string,
+          voiceSpeed: formData.get("voiceSpeed") as string,
+          aspectRatio: formData.get("aspectRatio") as string,
+          backgroundType,
+          backgroundValue:
+            backgroundType === "color"
+              ? (formData.get("backgroundValue") as string)
+              : undefined,
+        },
+        videoUrl: data.videoUrl,
+      };
+
+      setVersions(prev => [newVersion, ...prev]);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -66,6 +170,7 @@ export default function Home() {
 
         {/* Configuration Section */}
         <form
+            ref={formRef}
             onSubmit={handleSubmit}
             className="rounded-lg bg-white p-6 shadow-sm text-gray-900"
         >
@@ -298,48 +403,58 @@ export default function Home() {
           </p>
           <div className="mt-6 space-y-4">
 
-          {/* Mocked Version List */}
-          <div className="space-y-3">
-
-            {/* Version Item */}
-            <div className="flex items-center justify-between rounded-md border border-gray-200 p-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  Version 1
-                </p>
-                <p className="text-xs text-gray-500">
-                  Generated just now
-                </p>
-              </div>
-
-              <button
-                className="text-sm font-medium text-gray-400 cursor-not-allowed"
-                disabled
+          {/* Version List */}
+          {versions.map((version, index) => {
+            const isExpanded = expandedVersionId === version.id;
+            return (
+              <div
+                key={version.id}
+                className="rounded-md border border-gray-200 p-3 space-y-3"
               >
-                Load
-              </button>
-            </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      Version {versions.length - index}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(version.createdAt).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {describeChanges(versions[index + 1] ?? null, version)}
+                    </p>
+                  </div>
 
-            {/* Version Item */}
-            <div className="flex items-center justify-between rounded-md border border-gray-200 p-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  Version 2
-                </p>
-                <p className="text-xs text-gray-500">
-                  Generated 5 minutes ago
-                </p>
+                  <button
+                    className="text-sm font-medium text-gray-900"
+                    onClick={() => loadVersion(version)}
+                  >
+                    {isExpanded ? "Hide" : "Preview"}
+                  </button>
+                </div>
+
+                {/* Expanded preview */}
+                {isExpanded && (
+                  <div className="space-y-3 border-t border-gray-200 pt-3">
+                    <video
+                      src={version.videoUrl}
+                      controls
+                      className="w-full max-h-[300px] rounded-md object-contain"
+                    />
+
+                    <div className="flex justify-end">
+                      <a
+                        href={version.videoUrl}
+                        download
+                        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white inline-block"
+                      >
+                        Download Video
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              <button
-                className="text-sm font-medium text-gray-400 cursor-not-allowed"
-                disabled
-              >
-                Load
-              </button>
-            </div>
-
-          </div>
+            );
+          })}
 
         </div>
         </section>
