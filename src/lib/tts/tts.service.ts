@@ -3,21 +3,11 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import type { TTSInput, TTSResult } from "@/types/tts.types";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-export type TTSInput = {
-  text: string;
-  language: "en" | "fr" | "es";
-  voiceGender: "male" | "female";
-  voiceSpeed: "slow" | "normal" | "fast";
-};
-
-export type TTSResult = {
-  audioPath: string;
-};
 
 export async function generateSpeech(
   input: TTSInput
@@ -30,11 +20,10 @@ export async function generateSpeech(
     throw new Error("Text input is empty");
   }
 
-  // Simple voice mapping (product-level → provider-level)
   const voice =
     input.voiceGender === "female" ? "alloy" : "verse";
 
-  // Speed mapping (keep it simple)
+  // Speed mapping
   const speed =
     input.voiceSpeed === "slow"
       ? 0.75

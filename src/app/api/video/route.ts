@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { generateSpeech } from "@/lib/tts/tts.service";
 import { generateVideo } from "@/lib/video/video.service";
+import type { Language, VoiceGender, VoiceSpeed, AspectRatio, BackgroundType } from "@/types/common.types";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -12,15 +13,15 @@ export async function POST(req: Request) {
     const formData = await req.formData();
 
     const text = formData.get("text") as string;
-    const language = (formData.get("language") as "en" | "fr" | "es") || "en";
-    const voiceGender = formData.get("voiceGender") as "male" | "female";
-    const voiceSpeed = (formData.get("voiceSpeed") as "slow" | "normal" | "fast") || "normal";
-    const aspectRatio = formData.get("aspectRatio") as "16:9" | "9:16";
-    const backgroundType = formData.get("backgroundType") as "color" | "image";
+    const language = (formData.get("language") as Language) || "en";
+    const voiceGender = formData.get("voiceGender") as VoiceGender;
+    const voiceSpeed = (formData.get("voiceSpeed") as VoiceSpeed) || "normal";
+    const aspectRatio = formData.get("aspectRatio") as AspectRatio;
+    const backgroundType = formData.get("backgroundType") as BackgroundType;
     const backgroundValue = formData.get("backgroundValue") as string | null;
     const imageFile = formData.get("backgroundImage") as File | null;
 
-    // Minimal validation
+    // Basic validation
     if (!text || typeof text !== "string") {
       return NextResponse.json(
         { success: false, error: "Text is required" },
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
     resolvedBackgroundValue = imagePath;
     }
 
-    // 1️⃣ Generate audio
+    //Generate audio
     const audioResult = await generateSpeech({
       text,
       language,
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
       voiceSpeed,
     });
 
-    // 2️⃣ Generate video
+    //Generate video
     const videoResult = await generateVideo({
       audioPath: audioResult.audioPath,
       text,

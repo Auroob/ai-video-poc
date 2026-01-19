@@ -1,35 +1,8 @@
-import { createCanvas, type CanvasRenderingContext2D } from "canvas";
+import { createCanvas } from "canvas";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number
-  ): string[] {
-    const words = text.split(" ");
-    const lines: string[] = [];
-    let currentLine = "";
-
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const metrics = ctx.measureText(testLine);
-
-      if (metrics.width > maxWidth && currentLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    }
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-
-    return lines;
-}
+import { wrapText } from "@/lib/helpers/video.helpers";
 
 export function generateSubtitleImage(
   text: string,

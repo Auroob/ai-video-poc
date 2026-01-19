@@ -5,56 +5,11 @@ import path from "path";
 import crypto from "crypto";
 import util from "util";
 
-
 import { generateSubtitleImage } from "@/lib/subtitles/subtitle-image";
+import { splitIntoSubtitleChunks, getAudioDuration } from "@/lib/helpers/video.helpers";
+import type { VideoGenerationInput, VideoGenerationResult } from "@/types/video.types";
 
 const execAsync = util.promisify(exec);
-
-export type VideoGenerationInput = {
-  audioPath: string;
-  backgroundType: "color" | "image";
-  backgroundValue: string;
-  aspectRatio: "16:9" | "9:16";
-  text: string;
-};
-
-export type VideoGenerationResult = {
-  videoPath: string;
-};
-
-function splitIntoSubtitleChunks(
-  text: string,
-  maxChars = 80
-): string[] {
-  const words = text.split(/\s+/);
-  const chunks: string[] = [];
-
-  let current = "";
-
-  for (const word of words) {
-    if ((current + " " + word).trim().length <= maxChars) {
-      current = (current + " " + word).trim();
-    } else {
-      if (current.length > 0) {
-        chunks.push(current);
-      }
-      current = word;
-    }
-  }
-
-  if (current.length > 0) {
-    chunks.push(current);
-  }
-
-  return chunks;
-}
-
-async function getAudioDuration(audioPath: string): Promise<number> {
-  const { stdout } = await execAsync(
-    `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`
-  );
-  return parseFloat(stdout.trim());
-}
 
 export async function generateVideo(
   input: VideoGenerationInput
