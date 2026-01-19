@@ -37,9 +37,9 @@ export async function generateSpeech(
   // Speed mapping (keep it simple)
   const speed =
     input.voiceSpeed === "slow"
-      ? 0.85
+      ? 0.75
       : input.voiceSpeed === "fast"
-      ? 1.15
+      ? 1.25
       : 1.0;
 
   const fileId = crypto.randomUUID();

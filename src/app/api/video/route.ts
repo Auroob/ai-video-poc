@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
 
     const text = formData.get("text") as string;
-    const language = formData.get("language") as "en" | "fr" | "es";
+    const language = (formData.get("language") as "en" | "fr" | "es") || "en";
     const voiceGender = formData.get("voiceGender") as "male" | "female";
     const voiceSpeed = (formData.get("voiceSpeed") as "slow" | "normal" | "fast") || "normal";
     const aspectRatio = formData.get("aspectRatio") as "16:9" | "9:16";

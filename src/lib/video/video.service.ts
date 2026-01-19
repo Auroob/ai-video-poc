@@ -102,10 +102,17 @@ export async function generateVideo(
   chunks.forEach((chunk, index) => {
     const wordsInChunk = chunk.split(/\s+/).length;
     const duration =
-      (wordsInChunk / totalWords) * audioDuration * 1.15;
+      (wordsInChunk / totalWords) * audioDuration;
+      
+    let endTime = currentTime + duration;
+
+    // Force last subtitle to end exactly at audio end
+    if (index === chunks.length - 1) {
+      endTime = audioDuration;
+    }
 
     const start = currentTime.toFixed(2);
-    const end = (currentTime + duration).toFixed(2);
+    const end = endTime.toFixed(2);
 
     const inputIndex = index + 2; // 0=background, 1=audio
     const outputLabel =
@@ -117,6 +124,11 @@ export async function generateVideo(
 
     currentLabel = outputLabel;
     currentTime += duration;
+
+    // Prevent overshoot due to floating point drift
+    if (currentTime > audioDuration) {
+      currentTime = audioDuration;
+    }
   });
 
   const filterComplex = filterParts.join(";");

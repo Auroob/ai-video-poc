@@ -77,10 +77,25 @@ export default function Home() {
           </p>
           <div className="mt-6 space-y-6">
 
+            {/* Language Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-900">
+                Text Language
+              </label>
+              <select name="language" defaultValue="en" className="mt-2 w-full rounded-md border border-gray-300 p-2 text-sm">
+                <option value="en">English</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                The text should be written in the selected language.
+              </p>
+            </div>
+
             {/* Text Input */}
             <div>
               <label className="block text-sm font-medium text-gray-900">
-                Video Text
+                Text
               </label>
               <textarea
                 name="text"
@@ -89,18 +104,6 @@ export default function Home() {
                 className="mt-2 w-full rounded-md border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                 rows={4}
               />
-            </div>
-
-            {/* Language Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-900">
-                Language
-              </label>
-              <select name="language" defaultValue="en" className="mt-2 w-full rounded-md border border-gray-300 p-2 text-sm">
-                <option value="en">English</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-              </select>
             </div>
 
             {/* Voice Preferences */}
@@ -133,8 +136,8 @@ export default function Home() {
                 Aspect Ratio
               </label>
               <select name="aspectRatio" defaultValue="16:9" className="mt-2 w-full rounded-md border border-gray-300 p-2 text-sm">
-                <option value="16:9">16:9 (Landscape)</option>
-                <option value="9:16">9:16 (Portrait)</option>
+                <option value="16:9">Landscape</option>
+                <option value="9:16">Portrait</option>
               </select>
             </div>
 
