@@ -2,20 +2,23 @@
 import { NextResponse } from "next/server";
 import { generateSpeech } from "@/lib/tts/tts.service";
 import { generateVideo } from "@/lib/video/video.service";
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
 
-    const {
-      text,
-      language,
-      voiceGender,
-      voiceSpeed,
-      aspectRatio,
-      backgroundType,
-      backgroundValue,
-    } = body;
+    const formData = await req.formData();
+
+    const text = formData.get("text") as string;
+    const language = formData.get("language") as "en" | "fr" | "es";
+    const voiceGender = formData.get("voiceGender") as "male" | "female";
+    const voiceSpeed = formData.get("voiceSpeed") as "slow" | "normal" | "fast";
+    const aspectRatio = formData.get("aspectRatio") as "16:9" | "9:16";
+    const backgroundType = formData.get("backgroundType") as "color" | "image";
+    const backgroundValue = formData.get("backgroundValue") as string | null;
+    const imageFile = formData.get("backgroundImage") as File | null;
 
     // Minimal validation
     if (!text || typeof text !== "string") {
@@ -23,6 +26,32 @@ export async function POST(req: Request) {
         { success: false, error: "Text is required" },
         { status: 400 }
       );
+    }
+
+    let resolvedBackgroundValue = backgroundValue ?? "black";
+
+    if (backgroundType === "image") {
+    if (!imageFile) {
+        return NextResponse.json(
+        { success: false, error: "Background image is required" },
+        { status: 400 }
+        );
+    }
+
+    const bytes = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uploadDir = path.join(process.cwd(), "tmp");
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir);
+    }
+
+    const fileName = `${crypto.randomUUID()}-${imageFile.name}`;
+    const imagePath = path.join(uploadDir, fileName);
+
+    fs.writeFileSync(imagePath, buffer);
+
+    resolvedBackgroundValue = imagePath;
     }
 
     // 1️⃣ Generate audio
@@ -39,7 +68,7 @@ export async function POST(req: Request) {
       text,
       aspectRatio,
       backgroundType,
-      backgroundValue,
+      backgroundValue: resolvedBackgroundValue,
     });
 
     return NextResponse.json({

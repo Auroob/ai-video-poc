@@ -80,7 +80,9 @@ export async function generateVideo(
   const size =
     aspectRatio === "9:16" ? "720x1280" : "1280x720";
 
-  const sentences = splitIntoSubtitleChunks(text);
+  const [outW, outH] =
+    aspectRatio === "9:16" ? [720, 1280] : [1280, 720];
+
   const chunks = splitIntoSubtitleChunks(text);
   const audioDuration = await getAudioDuration(audioPath);
 
@@ -89,8 +91,8 @@ export async function generateVideo(
     0
   );
 
-  const subtitleImages = sentences.map(sentence =>
-    generateSubtitleImage(sentence, w, h)
+  const subtitleImages = chunks.map(chunk =>
+    generateSubtitleImage(chunk, w, h)
   );
 
   let filterParts: string[] = [];
@@ -127,7 +129,10 @@ export async function generateVideo(
       -f lavfi -i color=${backgroundValue}:s=${size}
       -i "${audioPath}"
       ${subtitleImages.map(img => `-i "${img}"`).join(" ")}
-      -filter_complex "${filterComplex}"
+      -filter_complex "
+        [0:v]null[base];
+        ${filterComplex}
+      "
       -map "[v]"
       -map 1:a:0
       -c:v libx264
@@ -140,7 +145,7 @@ export async function generateVideo(
     `;
   }
 
-/*   if (backgroundType === "image") {
+  if (backgroundType === "image") {
     if (!fs.existsSync(backgroundValue)) {
       throw new Error("Background image not found");
     }
@@ -149,9 +154,17 @@ export async function generateVideo(
       ffmpeg -y
       -loop 1 -i "${backgroundValue}"
       -i "${audioPath}"
-      -map 0:v:0
+      ${subtitleImages.map(img => `-i "${img}"`).join(" ")}
+      -filter_complex "
+        [0:v]
+        scale=${outW}:${outH}:force_original_aspect_ratio=decrease,
+        pad=${outW}:${outH}:(ow-iw)/2:(oh-ih)/2,
+        setsar=1
+        [base];
+        ${filterComplex}
+      "
+      -map "[v]"
       -map 1:a:0
-      -vf "scale=${size},drawtext=text='${subtitleText}':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=h-80"
       -c:v libx264
       -pix_fmt yuv420p
       -c:a aac
@@ -160,7 +173,7 @@ export async function generateVideo(
       -shortest
       "${outputPath}"
     `;
-  } */
+  }
 
   try {
     await execAsync(command.replace(/\s+/g, " ").trim());
