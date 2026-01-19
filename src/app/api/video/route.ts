@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const text = formData.get("text") as string;
     const language = formData.get("language") as "en" | "fr" | "es";
     const voiceGender = formData.get("voiceGender") as "male" | "female";
-    const voiceSpeed = formData.get("voiceSpeed") as "slow" | "normal" | "fast";
+    const voiceSpeed = (formData.get("voiceSpeed") as "slow" | "normal" | "fast") || "normal";
     const aspectRatio = formData.get("aspectRatio") as "16:9" | "9:16";
     const backgroundType = formData.get("backgroundType") as "color" | "image";
     const backgroundValue = formData.get("backgroundValue") as string | null;
@@ -71,9 +71,11 @@ export async function POST(req: Request) {
       backgroundValue: resolvedBackgroundValue,
     });
 
+    const fileName = path.basename(videoResult.videoPath);
+
     return NextResponse.json({
-      success: true,
-      videoPath: videoResult.videoPath,
+    success: true,
+    videoUrl: `/api/video/file?file=${fileName}`,
     });
   } catch (error) {
     console.error("Video API failed:", error);
