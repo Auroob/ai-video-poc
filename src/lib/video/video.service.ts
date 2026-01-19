@@ -1,0 +1,173 @@
+// src/lib/video/video.service.ts
+import { exec } from "child_process";
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import util from "util";
+
+
+import { generateSubtitleImage } from "@/lib/subtitles/subtitle-image";
+
+const execAsync = util.promisify(exec);
+
+export type VideoGenerationInput = {
+  audioPath: string;
+  backgroundType: "color" | "image";
+  backgroundValue: string;
+  aspectRatio: "16:9" | "9:16";
+  text: string;
+};
+
+export type VideoGenerationResult = {
+  videoPath: string;
+};
+
+function splitIntoSubtitleChunks(
+  text: string,
+  maxChars = 80
+): string[] {
+  const words = text.split(/\s+/);
+  const chunks: string[] = [];
+
+  let current = "";
+
+  for (const word of words) {
+    if ((current + " " + word).trim().length <= maxChars) {
+      current = (current + " " + word).trim();
+    } else {
+      if (current.length > 0) {
+        chunks.push(current);
+      }
+      current = word;
+    }
+  }
+
+  if (current.length > 0) {
+    chunks.push(current);
+  }
+
+  return chunks;
+}
+
+async function getAudioDuration(audioPath: string): Promise<number> {
+  const { stdout } = await execAsync(
+    `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`
+  );
+  return parseFloat(stdout.trim());
+}
+
+export async function generateVideo(
+  input: VideoGenerationInput
+): Promise<VideoGenerationResult> {
+  const { audioPath, backgroundType, backgroundValue, aspectRatio, text } = input;
+
+  if (!fs.existsSync(audioPath)) {
+    throw new Error("Audio file not found");
+  }
+
+  const outputDir = path.join(process.cwd(), "tmp");
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir);
+  }
+
+  const [w, h] =
+  aspectRatio === "9:16" ? [720, 1280] : [1280, 720];
+
+  const videoId = crypto.randomUUID();
+  const outputPath = path.join(outputDir, `${videoId}.mp4`);
+
+  // Aspect ratio dimensions
+  const size =
+    aspectRatio === "9:16" ? "720x1280" : "1280x720";
+
+  const sentences = splitIntoSubtitleChunks(text);
+  const chunks = splitIntoSubtitleChunks(text);
+  const audioDuration = await getAudioDuration(audioPath);
+
+  const totalWords = chunks.reduce(
+    (sum, chunk) => sum + chunk.split(/\s+/).length,
+    0
+  );
+
+  const subtitleImages = sentences.map(sentence =>
+    generateSubtitleImage(sentence, w, h)
+  );
+
+  let filterParts: string[] = [];
+  let currentLabel = "base";
+  let currentTime = 0;
+
+  chunks.forEach((chunk, index) => {
+    const wordsInChunk = chunk.split(/\s+/).length;
+    const duration =
+      (wordsInChunk / totalWords) * audioDuration * 1.15;
+
+    const start = currentTime.toFixed(2);
+    const end = (currentTime + duration).toFixed(2);
+
+    const inputIndex = index + 2; // 0=background, 1=audio
+    const outputLabel =
+      index === chunks.length - 1 ? "v" : `v${index}`;
+
+    filterParts.push(
+      `[${currentLabel}][${inputIndex}:v]overlay=enable='between(t,${start},${end})'[${outputLabel}]`
+    );
+
+    currentLabel = outputLabel;
+    currentTime += duration;
+  });
+
+  const filterComplex = filterParts.join(";");
+
+  let command = "";
+
+  if (backgroundType === "color") {
+    command = `
+      ffmpeg -y
+      -f lavfi -i color=${backgroundValue}:s=${size}
+      -i "${audioPath}"
+      ${subtitleImages.map(img => `-i "${img}"`).join(" ")}
+      -filter_complex "${filterComplex}"
+      -map "[v]"
+      -map 1:a:0
+      -c:v libx264
+      -pix_fmt yuv420p
+      -c:a aac
+      -ar 44100
+      -ac 2
+      -shortest
+      "${outputPath}"
+    `;
+  }
+
+/*   if (backgroundType === "image") {
+    if (!fs.existsSync(backgroundValue)) {
+      throw new Error("Background image not found");
+    }
+
+    command = `
+      ffmpeg -y
+      -loop 1 -i "${backgroundValue}"
+      -i "${audioPath}"
+      -map 0:v:0
+      -map 1:a:0
+      -vf "scale=${size},drawtext=text='${subtitleText}':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=h-80"
+      -c:v libx264
+      -pix_fmt yuv420p
+      -c:a aac
+      -ar 44100
+      -ac 2
+      -shortest
+      "${outputPath}"
+    `;
+  } */
+
+  try {
+    await execAsync(command.replace(/\s+/g, " ").trim());
+  } catch (error) {
+    console.error("FFmpeg failed:", error);
+    throw new Error("Video generation failed");
+  }
+
+  return { videoPath: outputPath };
+}
