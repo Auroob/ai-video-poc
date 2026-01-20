@@ -5,9 +5,15 @@ import path from "path";
 import crypto from "crypto";
 import type { TTSInput, TTSResult } from "@/types/tts.types";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export async function generateSpeech(
   input: TTSInput
@@ -39,6 +45,8 @@ export async function generateSpeech(
   }
 
   const audioPath = path.join(outputDir, `${fileId}.mp3`);
+
+  const openai = getOpenAIClient();
 
   try {
     const response = await openai.audio.speech.create({

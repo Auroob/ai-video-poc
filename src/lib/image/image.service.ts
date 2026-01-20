@@ -4,9 +4,15 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export type ImageGenerationInput = {
   prompt: string;
@@ -46,6 +52,8 @@ export async function generateImage(
   }
 
   const imagePath = path.join(outputDir, `${fileId}.png`);
+
+  const openai = getOpenAIClient();
 
   try {
     const response = await openai.images.generate({
