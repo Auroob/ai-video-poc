@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     const backgroundType = formData.get("backgroundType") as BackgroundType;
     const backgroundValue = formData.get("backgroundValue") as string | null;
     const imageFile = formData.get("backgroundImage") as File | null;
+    const generatedImageUrl = formData.get("generatedImageUrl") as string | null;
 
     // Basic validation
     if (!text || typeof text !== "string") {
@@ -32,27 +33,67 @@ export async function POST(req: Request) {
     let resolvedBackgroundValue = backgroundValue ?? "black";
 
     if (backgroundType === "image") {
-    if (!imageFile) {
+      if (!imageFile) {
         return NextResponse.json(
-        { success: false, error: "Background image is required" },
-        { status: 400 }
+          { success: false, error: "Background image is required" },
+          { status: 400 }
         );
-    }
+      }
 
-    const bytes = await imageFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
 
-    const uploadDir = path.join(process.cwd(), "tmp");
-    if (!fs.existsSync(uploadDir)) {
+      const uploadDir = path.join(process.cwd(), "tmp");
+      if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir);
+      }
+
+      const fileName = `${crypto.randomUUID()}-${imageFile.name}`;
+      const imagePath = path.join(uploadDir, fileName);
+
+      fs.writeFileSync(imagePath, buffer);
+
+      resolvedBackgroundValue = imagePath;
     }
 
-    const fileName = `${crypto.randomUUID()}-${imageFile.name}`;
-    const imagePath = path.join(uploadDir, fileName);
+    if (backgroundType === "generate") {
+      if (!generatedImageUrl) {
+        return NextResponse.json(
+          { success: false, error: "Generated background image is required" },
+          { status: 400 }
+        );
+      }
 
-    fs.writeFileSync(imagePath, buffer);
+      // Extract filename from URL
+      try {
+        const url = generatedImageUrl.startsWith("http")
+          ? new URL(generatedImageUrl)
+          : new URL(generatedImageUrl, "http://localhost");
+        const fileName = url.searchParams.get("file");
+        
+        if (!fileName) {
+          return NextResponse.json(
+            { success: false, error: "Invalid generated image URL" },
+            { status: 400 }
+          );
+        }
 
-    resolvedBackgroundValue = imagePath;
+        const imagePath = path.join(process.cwd(), "tmp", fileName);
+        
+        if (!fs.existsSync(imagePath)) {
+          return NextResponse.json(
+            { success: false, error: "Generated image file not found" },
+            { status: 400 }
+          );
+        }
+
+        resolvedBackgroundValue = imagePath;
+      } catch (error) {
+        return NextResponse.json(
+          { success: false, error: "Invalid generated image URL format" },
+          { status: 400 }
+        );
+      }
     }
 
     //Generate audio

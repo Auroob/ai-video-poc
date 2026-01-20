@@ -112,7 +112,7 @@ export async function generateVideo(
     `;
   }
 
-  if (backgroundType === "image") {
+  if (backgroundType === "image" || backgroundType === "generate") {
     if (!fs.existsSync(backgroundValue)) {
       throw new Error("Background image not found");
     }

@@ -90,7 +90,8 @@ export async function handleSubmit(
   setLoading: (loading: boolean) => void,
   setError: (error: string | null) => void,
   setVideoUrl: (url: string | null) => void,
-  setVersions: (versions: VideoVersion[] | ((prev: VideoVersion[]) => VideoVersion[])) => void
+  setVersions: (versions: VideoVersion[] | ((prev: VideoVersion[]) => VideoVersion[])) => void,
+  generatedImageUrl?: string | null
 ): Promise<void> {
   e.preventDefault();
   setLoading(true);
@@ -98,6 +99,11 @@ export async function handleSubmit(
   setVideoUrl(null);
 
   const formData = new FormData(e.currentTarget);
+
+  // Add generated image URL if background type is "generate"
+  if (backgroundType === "generate" && generatedImageUrl) {
+    formData.append("generatedImageUrl", generatedImageUrl);
+  }
 
   try {
     const res = await fetch("/api/video", {

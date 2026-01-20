@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { BackgroundType } from "@/types/common.types";
 
 type VideoFormProps = {
@@ -11,6 +12,7 @@ type VideoFormProps = {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onBackgroundTypeChange: (type: BackgroundType) => void;
   onImagePreviewClear: () => void;
+  onGeneratedImage: (imageUrl: string) => void;
 };
 
 export default function VideoForm({
@@ -22,7 +24,60 @@ export default function VideoForm({
   onSubmit,
   onBackgroundTypeChange,
   onImagePreviewClear,
+  onGeneratedImage,
 }: VideoFormProps) {
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  // Clear prompt and error when switching away from generate
+  useEffect(() => {
+    if (backgroundType !== "generate") {
+      setImagePrompt("");
+      setImageError(null);
+    }
+  }, [backgroundType]);
+
+  async function handleGenerateImage(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    if (!imagePrompt.trim()) {
+      setImageError("Please enter a prompt");
+      return;
+    }
+
+    setGeneratingImage(true);
+    setImageError(null);
+
+    try {
+      const aspectRatio = formRef.current
+        ? (formRef.current.elements.namedItem("aspectRatio") as HTMLSelectElement)
+            .value
+        : "16:9";
+
+      const response = await fetch("/api/image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: imagePrompt,
+          aspectRatio,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Image generation failed");
+      }
+
+      onGeneratedImage(data.imageUrl);
+    } catch (err: any) {
+      setImageError(err.message || "Failed to generate image");
+    } finally {
+      setGeneratingImage(false);
+    }
+  }
 
   return (
     <form
@@ -136,9 +191,30 @@ export default function VideoForm({
                 name="backgroundType"
                 value="image"
                 checked={backgroundType === "image"}
-                onChange={() => onBackgroundTypeChange("image")}
+                onChange={() => {
+                  onBackgroundTypeChange("image");
+                  if (backgroundType === "generate") {
+                    onImagePreviewClear();
+                  }
+                }}
               />
               Image upload
+            </label>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="backgroundType"
+                value="generate"
+                checked={backgroundType === "generate"}
+                onChange={() => {
+                  onBackgroundTypeChange("generate");
+                  if (backgroundType === "image") {
+                    onImagePreviewClear();
+                  }
+                }}
+              />
+              Generate background image
             </label>
           </div>
 
@@ -168,7 +244,7 @@ export default function VideoForm({
                 />
               </label>
 
-              {imagePreview && backgroundType === "image" && (
+              {imagePreview && (backgroundType === "image" || backgroundType === "generate") && (
                 <div className="h-16 w-16 overflow-hidden rounded-md border border-gray-300">
                   <img
                     src={imagePreview}
@@ -179,6 +255,35 @@ export default function VideoForm({
               )}
             </div>
           </div>
+
+          {backgroundType === "generate" && (
+            <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+              <label className="block text-sm font-medium text-gray-900">
+                Image Generation Prompt
+              </label>
+              <textarea
+                value={imagePrompt}
+                onChange={(e) => {
+                  setImagePrompt(e.target.value);
+                  setImageError(null);
+                }}
+                placeholder="Describe the background image you want to generate..."
+                className="w-full rounded-md border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                rows={3}
+              />
+              {imageError && (
+                <p className="text-sm text-red-600">{imageError}</p>
+              )}
+              <button
+                type="button"
+                onClick={handleGenerateImage}
+                disabled={generatingImage || loading}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-gray-800"
+              >
+                {generatingImage ? "Generating Image…" : "Generate Image"}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="pt-4">

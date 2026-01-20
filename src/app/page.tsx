@@ -18,12 +18,19 @@ export default function Home() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [backgroundType, setBackgroundType] = useState<BackgroundType>("color");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<VideoVersion[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     handleImageChangeHelper(e, setImagePreview);
+    setGeneratedImageUrl(null);
+  }
+
+  function handleGeneratedImage(imageUrl: string) {
+    setImagePreview(imageUrl);
+    setGeneratedImageUrl(imageUrl);
   }
 
   useEffect(() => {
@@ -58,7 +65,8 @@ export default function Home() {
       setLoading,
       setError,
       setVideoUrl,
-      setVersions
+      setVersions,
+      generatedImageUrl
     );
   }
 
@@ -84,7 +92,11 @@ export default function Home() {
           onImageChange={handleImageChange}
           onSubmit={handleSubmit}
           onBackgroundTypeChange={setBackgroundType}
-          onImagePreviewClear={() => setImagePreview(null)}
+          onImagePreviewClear={() => {
+            setImagePreview(null);
+            setGeneratedImageUrl(null);
+          }}
+          onGeneratedImage={handleGeneratedImage}
         />
 
         {/* Preview Section */}
